@@ -1,0 +1,11 @@
+{
+  "name": "LargePhoto",
+  "short_name": "LargePhoto",
+  "description": "スクロールした画面をつなげて1枚の大きな画像にする",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#14171b",
+  "theme_color": "#14171b",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

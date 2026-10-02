@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#14171b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>LargePhoto</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">LargePhoto</div>
+  <div id="stats" class="stats">画像を追加してください</div>
+  <button id="btnHelp" class="icon" title="使い方" aria-label="使い方">?</button>
+</header>
+
+<main id="stage">
+  <canvas id="view"></canvas>
+  <canvas id="mini" title="タップで全体表示"></canvas>
+
+  <div id="empty" class="empty">
+    <h1>スクロールした画面を<br>1枚の大きな画像に</h1>
+    <p>地図アプリなどを少しずつ重なるようにスクロールして撮ったスクリーンショットや画面収録をつなぎ合わせます。</p>
+    <div class="empty-actions">
+      <button class="primary" data-action="images">スクリーンショットを追加</button>
+      <button data-action="video">画面収録（動画）から</button>
+      <button data-action="live" class="only-desktop">画面をライブ取り込み（PC）</button>
+    </div>
+    <p class="hint">赤い斜線＝まだ埋まっていない範囲。最終的に外接する四角形の画像として保存されます。</p>
+  </div>
+
+  <div id="livebar" class="livebar" hidden>
+    <span id="liveState" class="live-state">●</span>
+    <span id="liveText">取り込み中</span>
+    <button id="btnPip" hidden>別窓ミニマップ</button>
+    <button id="btnLivePause">一時停止</button>
+    <button id="btnLiveStop" class="danger">終了</button>
+  </div>
+
+  <div id="adjustbar" class="adjustbar" hidden>
+    <span class="adjust-hint">タイルをタップして選択、ドラッグで移動</span>
+    <div class="row">
+      <button id="btnSnap">ピタッと合わせる</button>
+      <button id="btnAuto">自動で探す</button>
+      <button id="btnFront">前面へ</button>
+      <button id="btnDelete" class="danger">削除</button>
+      <button id="btnAdjustDone" class="primary">完了</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+</main>
+
+<nav class="tools">
+  <button data-action="images"><span class="ic">＋</span><span>画像</span></button>
+  <button data-action="video"><span class="ic">▶</span><span>動画</span></button>
+  <button data-action="live" class="only-desktop"><span class="ic">◉</span><span>ライブ</span></button>
+  <button id="btnAdjust"><span class="ic">✥</span><span>調整</span></button>
+  <button id="btnUndo"><span class="ic">↶</span><span>戻す</span></button>
+  <button id="btnFit"><span class="ic">⤢</span><span>全体</span></button>
+  <button id="btnSettings"><span class="ic">⚙</span><span>設定</span></button>
+  <button id="btnExport" class="primary"><span class="ic">⬇</span><span>保存</span></button>
+</nav>
+
+<input type="file" id="fileImages" accept="image/*" multiple hidden>
+<input type="file" id="fileVideo" accept="video/*" hidden>
+<video id="video" muted playsinline preload="auto" hidden></video>
+
+<dialog id="dlgCrop">
+  <h2>取り込む範囲</h2>
+  <p class="sub">検索バー・ボタン・タブなど<b>スクロールしても動かない部分</b>を、青い枠の外に出してください（上下の帯をドラッグ）。</p>
+  <div class="crop-wrap"><canvas></canvas></div>
+  <div class="row">
+    <button data-preset="phone">スマホ地図向け</button>
+    <button data-preset="desktop">PC向け</button>
+    <button data-preset="none">全体</button>
+  </div>
+  <div class="row end">
+    <button data-cancel>キャンセル</button>
+    <button data-ok class="primary">この範囲で続ける</button>
+  </div>
+</dialog>
+
+<dialog id="dlgProgress">
+  <h2 id="progTitle">処理中…</h2>
+  <progress id="progBar" max="1" value="0"></progress>
+  <p id="progText" class="sub"></p>
+  <canvas id="progMini" class="prog-mini"></canvas>
+  <div class="row end"><button id="progCancel">中止</button></div>
+</dialog>
+
+<dialog id="dlgExport">
+  <h2>1枚の画像として保存</h2>
+  <p id="expInfo" class="sub"></p>
+  <label>大きさ
+    <select id="expScale"></select>
+  </label>
+  <label>空白部分の色
+    <select id="expBg">
+      <option value="#ffffff">白</option>
+      <option value="#000000">黒</option>
+      <option value="transparent">透明（PNGのみ）</option>
+    </select>
+  </label>
+  <label>形式
+    <select id="expType">
+      <option value="image/png">PNG（劣化なし）</option>
+      <option value="image/jpeg">JPEG（軽い）</option>
+    </select>
+  </label>
+  <p id="expWarn" class="warn"></p>
+  <div id="expResult" class="exp-result" hidden>
+    <p id="expDone"></p>
+    <div class="row">
+      <a id="expDownload" class="button primary" download>ダウンロード</a>
+      <button id="expShare" hidden>共有 / 写真に保存</button>
+    </div>
+  </div>
+  <div class="row end">
+    <button data-close>閉じる</button>
+    <button id="expGo" class="primary">画像を作成</button>
+  </div>
+</dialog>
+
+<dialog id="dlgSettings">
+  <h2>設定</h2>
+  <label>位置合わせの厳しさ <output id="outThr"></output>
+    <input type="range" id="setThr" min="0.3" max="0.9" step="0.05">
+    <small>低いと合わせやすいが、間違った場所に付くことも。</small>
+  </label>
+  <label>動画を調べる間隔 <output id="outStep"></output>
+    <input type="range" id="setStep" min="0.05" max="0.5" step="0.05">
+    <small>速くスクロールした動画は短くしてください。</small>
+  </label>
+  <label>新しく取り込む目安（未取得の割合） <output id="outAdd"></output>
+    <input type="range" id="setAdd" min="0.05" max="0.6" step="0.05">
+  </label>
+  <div class="row">
+    <button id="btnCropEdit">取り込む範囲を変更…</button>
+  </div>
+  <div class="row">
+    <button id="btnClear" class="danger">すべて消去</button>
+  </div>
+  <div class="row end"><button data-close class="primary">閉じる</button></div>
+</dialog>
+
+<dialog id="dlgHelp">
+  <h2>使い方</h2>
+  <ol class="help">
+    <li><b>スクリーンショットから</b>：地図アプリで、前の画面と<b>3割くらい重なる</b>ように縦横にスクロールしながらスクショを撮り、［＋画像］でまとめて選びます。自動でつながります。</li>
+    <li><b>画面収録（動画）から</b>：iPhone/Android の画面収録をオンにして、地図をゆっくり指でなぞるように縦横にスクロール。終わったら［▶動画］でその動画を選ぶと、自動で連結します。</li>
+    <li><b>ライブ（PC）</b>：Chrome/Edge などで［◉ライブ］→ Googleマップなどのタブやウィンドウを選んで、そちらでスクロール。取り込まれた範囲がこの画面にリアルタイムで表示されます。［別窓ミニマップ］で常に手前に表示できます。</li>
+    <li><b>赤い斜線</b>はまだ埋まっていない場所です。そこを目指して追加でスクロール・撮影してください。</li>
+    <li>うまく付かなかった画像は<b>赤い点線</b>で右側に置かれます。［✥調整］でだいたいの場所にドラッグすると、自動でピタッと合います。</li>
+    <li>［⬇保存］で、全体を囲む<b>四角形の1枚画像</b>として保存します。</li>
+  </ol>
+  <p class="sub">コツ：途中で<b>拡大・縮小や回転をしない</b>（平行移動だけ）。検索バーなど動かない部分は「取り込む範囲」で外す。海や空白など模様の少ない場所は合わせにくいので重なりを多めに。画像は端末の中だけで処理され、どこにも送信されません。</p>
+  <div class="row end"><button data-close class="primary">閉じる</button></div>
+</dialog>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
