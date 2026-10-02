@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#14171b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="LargePic">
+<meta name="description" content="画像つなぎ LargePic — スクロールした画面をつなげて1枚の大きな画像に">
+<title>画像つなぎ LargePic</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-32.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="top">
+  <img class="logo" src="icons/icon-192.png" alt="">
+  <div class="brand">LargePic<small>画像つなぎ</small></div>
+  <div id="stats" class="stats">撮影して始めましょう</div>
+  <button id="btnHelp" class="icon" title="使い方" aria-label="使い方">?</button>
+</header>
+
+<main id="stage">
+  <canvas id="view"></canvas>
+  <canvas id="mini" title="タップで全体表示"></canvas>
+
+  <div id="empty" class="empty">
+    <img class="hero" src="icons/icon-192.png" alt="">
+    <h1>スクロールした画面を<br>1枚の大きな画像に</h1>
+    <p>地図アプリなどを画面収録しながら縦横にスクロールするだけ。自動で認識してつなぎ合わせます。</p>
+    <div class="empty-actions">
+      <button class="primary big" data-action="capture">● 撮影をはじめる</button>
+      <button data-action="images">スクリーンショットから作る</button>
+    </div>
+    <p class="hint"><a href="#" data-action="help">撮影のコツを見る</a></p>
+  </div>
+
+  <button id="btnFill" class="fill-chip" hidden>不足部分を追加撮影</button>
+
+  <div id="recbar" class="livebar" hidden>
+    <span class="live-state rec">●</span>
+    <span>録画中 — 地図アプリで撮影してください</span>
+    <button id="btnRecStop" class="danger">停止して取り込む</button>
+  </div>
+
+  <div id="livebar" class="livebar" hidden>
+    <span id="liveState" class="live-state">●</span>
+    <span id="liveText">取り込み中</span>
+    <button id="btnPip" hidden>別窓ミニマップ</button>
+    <button id="btnLivePause">一時停止</button>
+    <button id="btnLiveStop" class="danger">終了</button>
+  </div>
+
+  <div id="adjustbar" class="adjustbar" hidden>
+    <span class="adjust-hint">タイルをタップして選択、ドラッグで移動</span>
+    <div class="row">
+      <button id="btnSnap">ピタッと合わせる</button>
+      <button id="btnAuto">自動で探す</button>
+      <button id="btnFront">前面へ</button>
+      <button id="btnDelete" class="danger">削除</button>
+      <button id="btnAdjustDone" class="primary">完了</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+</main>
+
+<nav class="tools">
+  <button data-action="capture" class="rec-btn"><span class="ic">●</span><span>撮影</span></button>
+  <button data-action="images"><span class="ic">＋</span><span>画像</span></button>
+  <button id="btnAdjust"><span class="ic">✥</span><span>調整</span></button>
+  <button id="btnUndo"><span class="ic">↶</span><span>戻す</span></button>
+  <button id="btnFit"><span class="ic">⤢</span><span>全体</span></button>
+  <button id="btnSettings"><span class="ic">⚙</span><span>設定</span></button>
+  <button id="btnExport" class="primary"><span class="ic">⬇</span><span>保存</span></button>
+</nav>
+
+<input type="file" id="fileImages" accept="image/*" multiple hidden>
+<input type="file" id="fileVideo" accept="video/*" hidden>
+<video id="video" muted playsinline preload="auto" hidden></video>
+
+<!-- 撮影モード -->
+<dialog id="dlgCapture">
+  <h2 id="capTitle">画面収録で撮影</h2>
+  <p id="capFill" class="note" hidden>
+    <b>不足部分の追加撮影：</b>撮影を始めたら、まず<b>取り込み済みの場所</b>を1〜2秒映してください（位置を認識します）。そこから<b>赤い斜線の場所</b>へスクロールします。拡大率は前回と同じにしてください。
+  </p>
+  <div class="rules">
+    <div><b class="n">1</b><span>撮影中は<b>拡大・縮小・回転をしない</b></span></div>
+    <div><b class="n">2</b><span>画面の<b>1/3ずつ</b>スクロールして<b>1秒止める</b></span></div>
+    <div><b class="n">3</b><span><b>ジグザグ</b>に往復して、まんべんなく</span></div>
+  </div>
+  <ol id="capSteps" class="steps"></ol>
+  <div class="col">
+    <button id="capStart" class="primary big" hidden>● 録画を開始</button>
+    <button id="capPick" class="big">撮影した動画を選ぶ</button>
+    <button id="capLive" hidden>この画面で他のタブ/ウィンドウをライブ取り込み</button>
+  </div>
+  <p class="sub center"><a href="#" data-action="help">くわしい撮影のコツ</a></p>
+  <div class="row end"><button data-close>閉じる</button></div>
+</dialog>
+
+<dialog id="dlgCrop">
+  <h2>取り込む範囲</h2>
+  <p class="sub">検索バー・ボタン・タブなど<b>スクロールしても動かない部分</b>を、青い枠の外に出してください（枠の辺をドラッグ）。</p>
+  <div class="crop-wrap"><canvas></canvas></div>
+  <div class="range" hidden>
+    <label>開始 <output data-start-out></output><input type="range" data-start></label>
+    <label>終了 <output data-end-out></output><input type="range" data-end></label>
+    <small>録画の最初や最後に、地図以外（このアプリやホーム画面）が映っている部分を外してください。</small>
+  </div>
+  <div class="row">
+    <button data-preset="phone">スマホ地図向け</button>
+    <button data-preset="desktop">PC向け</button>
+    <button data-preset="none">全体</button>
+  </div>
+  <div class="row end">
+    <button data-cancel>キャンセル</button>
+    <button data-ok class="primary">この範囲で続ける</button>
+  </div>
+</dialog>
+
+<dialog id="dlgProgress">
+  <h2 id="progTitle">処理中…</h2>
+  <progress id="progBar" max="1" value="0"></progress>
+  <p id="progText" class="sub"></p>
+  <canvas id="progMini" class="prog-mini"></canvas>
+  <div class="row end"><button id="progCancel">中止</button></div>
+</dialog>
+
+<dialog id="dlgExport">
+  <h2>1枚の画像として保存</h2>
+  <p id="expInfo" class="sub"></p>
+  <div class="seg-row">
+    <span>形</span>
+    <div class="seg" id="segShape">
+      <button data-v="rect" class="on">▭ 四角</button>
+      <button data-v="circle">◯ 丸</button>
+    </div>
+  </div>
+  <div class="seg-row">
+    <span>合わせ方</span>
+    <div class="seg" id="segFit">
+      <button data-v="outer" class="on">外接</button>
+      <button data-v="inner">内接</button>
+      <button data-v="free">自由</button>
+    </div>
+  </div>
+  <p id="fitHint" class="sub small"></p>
+  <canvas id="trimCanvas" class="trim-canvas"></canvas>
+  <label>大きさ
+    <select id="expScale"></select>
+  </label>
+  <label>すき間・余白の色
+    <select id="expBg">
+      <option value="#ffffff">白</option>
+      <option value="#000000">黒</option>
+      <option value="transparent">透明（PNGのみ）</option>
+    </select>
+  </label>
+  <label>形式
+    <select id="expType">
+      <option value="image/png">PNG（劣化なし）</option>
+      <option value="image/jpeg">JPEG（軽い）</option>
+    </select>
+  </label>
+  <p id="expWarn" class="warn"></p>
+  <div id="expResult" class="exp-result" hidden>
+    <p id="expDone"></p>
+    <div class="row">
+      <a id="expDownload" class="button primary" download>ダウンロード</a>
+      <button id="expShare" hidden>共有 / 写真に保存</button>
+    </div>
+  </div>
+  <div class="row end">
+    <button data-close>閉じる</button>
+    <button id="expGo" class="primary">画像を作成</button>
+  </div>
+</dialog>
+
+<dialog id="dlgSettings">
+  <h2>設定</h2>
+  <label>位置合わせの厳しさ <output id="outThr"></output>
+    <input type="range" id="setThr" min="0.3" max="0.9" step="0.05">
+    <small>低いと合わせやすいが、間違った場所に付くことも。</small>
+  </label>
+  <label>動画を調べる間隔 <output id="outStep"></output>
+    <input type="range" id="setStep" min="0.05" max="0.5" step="0.05">
+    <small>速くスクロールした動画は短くしてください。</small>
+  </label>
+  <label>新しく取り込む目安（未取得の割合） <output id="outAdd"></output>
+    <input type="range" id="setAdd" min="0.05" max="0.6" step="0.05">
+  </label>
+  <div class="row">
+    <button id="btnCropEdit">取り込む範囲を変更…</button>
+    <button id="btnPickVideo">動画ファイルを読み込む…</button>
+  </div>
+  <div class="row">
+    <button id="btnClear" class="danger">すべて消去して新しく始める</button>
+  </div>
+  <p class="sub small">作業内容はこの端末の中に自動保存されます（外部には送信しません）。</p>
+  <div class="row end"><button data-close class="primary">閉じる</button></div>
+</dialog>
+
+<dialog id="dlgHelp" class="help-dlg">
+  <h2>使い方と撮影のコツ</h2>
+
+  <h3>かんたんな流れ</h3>
+  <ol class="help">
+    <li>［● 撮影］から<b>画面収録</b>を始める</li>
+    <li>地図アプリに切り替えて、縦横にスクロール</li>
+    <li>収録を止めて、この画面で取り込む（自動でつながります）</li>
+    <li><b>赤い斜線</b>＝足りない場所。［不足部分を追加撮影］で埋める</li>
+    <li>［⬇ 保存］で形（四角／丸）と範囲を選んで1枚の画像に</li>
+  </ol>
+
+  <h3>撮影の前に</h3>
+  <ul class="help">
+    <li><b>縮尺（拡大率）を決めてから</b>撮影を始める。撮影中は<b>拡大・縮小しない</b>。</li>
+    <li>地図は<b>北を上に固定</b>（コンパスをタップ）。<b>回転・傾き（3D）はオフ</b>。</li>
+    <li><b>現在地の追従をオフ</b>に。地図が勝手に動くとずれます。</li>
+    <li>ピンや吹き出し、検索結果の一覧は閉じておく。</li>
+  </ul>
+
+  <h3>撮影中のコツ</h3>
+  <ul class="help">
+    <li>指で<b>画面の1/3くらいずつ</b>ゆっくりスクロールして、<b>指を離して1秒止める</b>。止まったコマはブレが無く、地図の文字も読み込まれてくっきり取り込めます。</li>
+    <li><b>はじかない</b>（慣性で流れるスクロールはブレて見失いやすい）。</li>
+    <li>芝刈りのように<b>ジグザグ</b>：右へ進む → 少し下へ → 左へ戻る → 少し下へ…。行と行は<b>1/3以上重ねる</b>。</li>
+    <li>まんべんなく。<b>赤い斜線</b>が残っても後から追加撮影で埋められます。</li>
+    <li>海・空白・単色の場所はつながりにくいので、陸地や文字が画面に入るように。</li>
+  </ul>
+
+  <h3>不足部分を埋める</h3>
+  <ul class="help">
+    <li>［不足部分を追加撮影］→ 撮影を始めたら<b>まず取り込み済みの場所を1〜2秒映す</b>（そこで位置を認識）→ 赤い斜線の場所へスクロール。</li>
+    <li>前回と<b>同じ拡大率</b>で撮影してください。</li>
+  </ul>
+
+  <h3>画面収録のはじめ方</h3>
+  <ul class="help">
+    <li><b>iPhone</b>：アプリの［録画を開始］、またはコントロールセンターの「画面収録」◉。止めるときは画面上部の赤い表示をタップ。<small>（コントロールセンターに無い場合：設定 → コントロールセンター → 画面収録を追加）</small></li>
+    <li><b>Android</b>：アプリの［録画を開始］、またはクイック設定（上から2回スワイプ）の「スクリーンレコード」。止めるときは通知から。</li>
+    <li><b>PC</b>：［撮影］→［ライブ取り込み］でGoogleマップなどのタブを選ぶと、スクロールした範囲がリアルタイムで表示されます。</li>
+  </ul>
+
+  <h3>取り込む範囲（最初に聞かれます）</h3>
+  <ul class="help">
+    <li>検索バー・ボタン・タブバーなど、<b>動かない部分は青い枠の外</b>へ。これが入るとつながりません。</li>
+    <li>動画の場合は、<b>開始・終了</b>のスライダーで地図以外が映っている部分を外せます。</li>
+  </ul>
+
+  <h3>保存の形</h3>
+  <ul class="help">
+    <li><b>四角／丸</b>を選べます。</li>
+    <li><b>外接</b>：取り込んだ全体が入る大きさ（すき間は白などで埋まる）。</li>
+    <li><b>内接</b>：すき間が入らない一番大きな四角／丸。</li>
+    <li><b>自由</b>：プレビュー上で枠をドラッグして位置と大きさを決める。</li>
+  </ul>
+
+  <h3>うまくつながらないとき</h3>
+  <ul class="help">
+    <li>赤い点線の画像は位置が分からなかったもの。［✥ 調整］でだいたいの場所へドラッグするとピタッと合います。</li>
+    <li>ずれた画像は［✥ 調整］で選んで［削除］、または［↶ 戻す］。</li>
+    <li>設定の「位置合わせの厳しさ」を下げると合いやすくなります。</li>
+  </ul>
+  <div class="row end"><button data-close class="primary">閉じる</button></div>
+</dialog>
+
+<dialog id="dlgRestore">
+  <h2>前回の続き</h2>
+  <p class="sub">前回の作業が保存されています。続きから再開しますか？</p>
+  <div class="row end">
+    <button id="restoreNew">新しく始める</button>
+    <button id="restoreGo" class="primary">続きから</button>
+  </div>
+</dialog>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

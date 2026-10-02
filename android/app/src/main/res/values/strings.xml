@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">LargePic</string>
+    <string name="title_activity_main">LargePic</string>
+    <string name="package_name">com.fuuchanlab.largepic</string>
+    <string name="custom_url_scheme">com.fuuchanlab.largepic</string>
+</resources>

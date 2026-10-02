@@ -1,10 +1,24 @@
 {
-  "name": "largephoto",
+  "name": "largepic",
+  "version": "1.0.0",
+  "description": "画像つなぎ LargePic — スクロールした画面をつなげて1枚の大きな画像に",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "python3 -m http.server 8000",
+    "start": "npx http-server www -p 8000 -c-1",
     "test": "node test/register.test.mjs",
-    "test:e2e": "node test/e2e.mjs"
+    "test:e2e": "node test/e2e.mjs",
+    "icons": "node resources/render-icons.mjs",
+    "sync": "npx cap sync",
+    "android": "npx cap sync android && npx cap open android",
+    "ios": "npx cap sync ios && npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/ios": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
   }
 }

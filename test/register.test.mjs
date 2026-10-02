@@ -1,5 +1,5 @@
 // node test/register.test.mjs
-import { makeFeatures, register, registerNear, scalesFor } from '../js/register.js';
+import { makeFeatures, register, registerNear, scalesFor } from '../www/js/register.js';
 
 // 疑似「地図」画像を作る（道路っぽい線＋ブロック＋ノイズ）
 function rng(seed) { return () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296); }

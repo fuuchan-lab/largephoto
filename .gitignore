@@ -1,1 +1,3 @@
 node_modules/
+android/app/src/main/assets/public
+android/.gradle
