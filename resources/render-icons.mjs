@@ -95,7 +95,7 @@ async function render(kind, size, out, w = size, h = size) {
 }
 
 // Web / PWA
-for (const s of [32, 192, 512]) await render('round', s, path.join(root, `www/icons/icon-${s}.png`));
+for (const s of [32, 192, 512]) await render('full', s, path.join(root, `www/icons/icon-${s}.png`));
 await render('full', 180, path.join(root, 'www/icons/icon-180.png'));
 await render('full', 512, path.join(root, 'www/icons/maskable-512.png'));
 
@@ -128,8 +128,8 @@ const dens = { mdpi: 1, hdpi: 1.5, xhdpi: 2, xxhdpi: 3, xxxhdpi: 4 };
 try {
   await readFile(path.join(root, 'android/app/build.gradle'));
   for (const [d, k] of Object.entries(dens)) {
-    await render('round', 48 * k, path.join(res, `mipmap-${d}/ic_launcher.png`));
-    await render('circle', 48 * k, path.join(res, `mipmap-${d}/ic_launcher_round.png`));
+    await render('full', 48 * k, path.join(res, `mipmap-${d}/ic_launcher.png`));
+    await render('full', 48 * k, path.join(res, `mipmap-${d}/ic_launcher_round.png`));
     await render('fg', 108 * k, path.join(res, `mipmap-${d}/ic_launcher_foreground.png`));
     await render('bg', 108 * k, path.join(res, `mipmap-${d}/ic_launcher_background.png`));
   }
